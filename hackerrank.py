@@ -199,8 +199,8 @@ class HackerRankAPI(object):
                 break
 
 
-    def auto_play(self):
+    def auto_play(self, min_candies=6, max_candies=2048):
         # currently, they only support play game from 6 - 2048 candies
-        for i in xrange(6, 2048):
+        for i in xrange(min_candies, max_candies):
             if i % 6 == 0: continue
-            self.play_game2(i)
+            self.play_game(i)
