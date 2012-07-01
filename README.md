@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 ### HackerRankAPI 
 
 [HackerRank](http://hackerrank.com/) is new fun site was introduced in [Hacker News]() today
@@ -26,10 +25,3 @@ To autoplay, in your terminal, use command
     $> python main.py
 
 Happy hacking :-)
-
-=======
-hackerrank-bot
-==============
-
-HackerRank challenge bot
->>>>>>> e134bc590f7ebce009959aca252a076a8eab6d39
