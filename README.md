@@ -1,4 +1,4 @@
-### HackerRankAPI 
+### CandyBot
 
 [HackerRank](http://hackerrank.com/) is new fun site was introduced in [Hacker News]() today
 
@@ -17,15 +17,16 @@ The algorithm is quite clear:
 
 I wrote this program by python to make a funny bot play with hacker rank 's game
 
-This program using `requests` library to make HttpRequest
 
-To start with, modify `main.py`
+### SpaceBot
+Dont need to care about the answer of scientists
+The encrypted string is `Caesar Cipher`: It means a string "abc" => "xyz" where 
+  x - a = y - b = z - c = d
+This challenge is to find d.
+Remember that the encrypted string represents number, so i brute force to find out the correct answer
 
-    >>> USERNAME = "your username"
-    >>> PASSWORD = "your password"
 
-To autoplay, in your terminal, use command
 
-    $> python main.py
+Bot using `requests` library to make HttpRequest
 
 Happy hacking :-)
