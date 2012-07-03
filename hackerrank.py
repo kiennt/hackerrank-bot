@@ -4,13 +4,6 @@ import sqlite3
 import requests
 import time
 
-# setup logger in file
-import logging; 
-logger = logging.getLogger(__name__)
-formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-handler = logging.FileHandler("hackerrank.log")
-handler.setFormatter(formatter)
-logger.addHandler(handler)
 
 # constant for API ENDPOINT
 LOGIN_ENDPOINT = "https://www.hackerrank.com/users/sign_in.json"
@@ -33,46 +26,47 @@ class SQLiteDB(object):
     Shared memory was use is SQLite database
     """
 
-    def __init__(self):
+    def __init__(self, table_name):
         self.conn = sqlite3.connect('hackerrank.db')
+        self.table_name = table_name
         self.cursor = self.conn.cursor()
 
     def count_win_game(self):
         """Return Int number of win game in database"""
-        self.cursor.execute("SELECT count(*) FROM hackerrank WHERE status = 1")
+        self.cursor.execute("SELECT count(*) FROM ? WHERE status = 1", self.table_name)
         row = self.cursor.fetchone()
         return row[0]
 
-    def is_play_game(self, candies):
+    def is_play_game(self, game_id):
         """Return True if this game is beging played or is played""" 
-        self.cursor.execute("SELECT status FROM hackerrank WHERE candies_id = ?", (candies, ))
+        self.cursor.execute("SELECT status FROM %s WHERE game_id = ?" % self.table_name, (game_id, ))
         row = self.cursor.fetchone()
         return row
 
-    def save_win_game(self, candies):
+    def save_win_game(self, game_id):
         """Save game is win"""
-        self.cursor.execute("REPLACE INTO hackerrank VALUES (?, 1)", (candies, ))
+        self.cursor.execute("REPLACE INTO %s VALUES (?, 1)" % self.table_name, (game_id, ))
         self.conn.commit()
 
-    def save_lose_game(self, candies):
+    def save_lose_game(self, game_id):
         """Save game is lose"""
-        self.cursor.execute("REPLACE INTO hackerrank VALUES (?, 0)", (candies, ))
+        self.cursor.execute("REPLACE INTO %s VALUES (?, 0)" % self.table_name, (game_id, ))
         self.conn.commit()
 
-    def save_game_is_playing(self, candies):
+    def save_game_is_playing(self, game_id):
         """Save game is playing. If game is playing, it wont be played again"""
-        self.cursor.execute("REPLACE INTO hackerrank VALUES (?, -1)", (candies, ))
+        self.cursor.execute("REPLACE INTO %s VALUES (?, -1)" % self.table_name, (game_id, ))
         self.conn.commit()
 
 ###############################################################################
 # HackerRank API CLASS
 ###############################################################################
 class HackerRankAPI(object):
-    def __init__(self, username, password):
+    def __init__(self, username, password, table_name):
         self.username = username
         self.password = password
         self.wait_time = INIT_WAIT_TIME
-        self.db = SQLiteDB()
+        self.db = SQLiteDB(table_name)
 
         self.cookies = {}
 
@@ -91,7 +85,16 @@ class HackerRankAPI(object):
             "X-Requested-With" : "XMLHttpRequest", 
         }
         self.requests = requests.session(headers=self.headers)
-        self.logger = logger
+
+        # setup logger in file
+        import logging; 
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.DEBUG)
+        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        handler = logging.FileHandler("%s.log" % __name__)
+        handler.setFormatter(formatter)
+        handler.setLevel(logging.DEBUG)
+        self.logger.addHandler(handler)
    
     def _get_request_info(self, method, url, data=None):
         """Return string represent for the request"""
@@ -195,96 +198,4 @@ class HackerRankAPI(object):
         res = self.get(LEADERBOARD_ENDPOINT)
         return res.json
     
-    def new(self, candies):
-        """Create new game with candies, like "challenge N" where N = candies
-        @return object has format:
-            :n Int number of candies
-            :current Int number of remain candies
-            :limit Int 
-            :moves List often empty
-        """
-        data = {
-            "n" : str(candies),
-            "remote" : "true",
-            "utf8" : "true",
-        } 
-        res = self.post(CHALLENGE_ENDPOINT, data=data)
-        return res.json
-    
-    def pick(self, candies):
-        """Pick number of candies in current game
-        If request failed, return json object has format:
-            :game  null,
-            :exit  Int 1
-            :message  String 'You can't play that game!'
-        This error maybe require relogin
 
-        If request sucess, return json object has format:
-            :game {
-                :n number Int of candies in game
-                :current Int number of candies remain
-                :limit Int maximum candies you can move
-                :moves List of move of you and computer
-            }
-            :message String
-
-        If you  win, return json object has format:
-            :game {
-                :n number Int of candies in game
-                :current Int 0
-                :solved Boolean True
-            }
-            :exit 0
-            :message String
-        """
-        data = {
-            "move" : str(candies),
-            "remote" : "true",
-            "utf8" : "true"     
-        }
-        res = self.put(CHALLENGE_ENDPOINT, data=data)
-        return res.json
-
-    def play_game(self, candies):
-        """An strategy to win a game:
-        Before play, mark this game is playing (status = -1)
-        so other thread wont play that game again
-        if current candies is N, we pick N % 6 candies
-        Store result in a database so next time, we dont need to run it again
-        """
-        n = candies
-        num_requests = 0
-
-        #print "start play with %s candies" % candies
-        self.new(n)
-        num_requests += 1
-        while True:
-            c = n % 6
-            res = self.pick(c)
-            #print res
-            num_requests += 1
-            n = int(res["game"]["current"])
-            if n == 0:
-                if res["game"]["solved"]:
-                    self.db.save_win_game(candies)
-                    print "Win game %d with %d requests" % (candies, num_requests)
-                else:
-                    self.db.lose_game(candies)
-                    print "Lose game %d with %d requests" % (candies, num_requests)
-                break
-        return num_requests
-
-
-    def auto_play(self, min_candies=6, max_candies=2560, increament=1):
-        """Auto play game in range from min_candies to max_cadies"""
-        # currently, they only support play game from 6 - 2560 candies
-        for i in xrange(min_candies, max_candies, increament):
-            if i % 6 == 0 or self.db.is_play_game(i): continue
-            while True:
-                try:
-                    self.play_game(i)
-                    break
-                except Exception as e:
-                    logger.error("Erorr why try to play game with %s candies" % i)
-                    logger.error("Replay after 10 seconds")
-                    time.sleep(10)
